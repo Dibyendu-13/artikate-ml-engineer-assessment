@@ -14,6 +14,7 @@ This repository contains a complete submission for the four required assessment 
 ## Setup
 
 The project is self-contained and uses local libraries only.
+The RAG sample PDFs, vector index, and classifier artifacts are generated locally during the build/train steps.
 
 ### Recommended environment
 
@@ -39,6 +40,12 @@ Train and evaluate the ticket classifier:
 python -m src.classifier.train
 python -m src.classifier.evaluate
 python -m src.classifier.latency_test
+```
+
+Or run the common flow with:
+
+```bash
+make all
 ```
 
 ## Notes
