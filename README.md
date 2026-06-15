@@ -1,22 +1,23 @@
 # Artikate ML Engineer Tasks
 
-This repository contains a complete submission for the four required assessment sections.
+This repository is a complete submission for the four required assessment sections.
 
-## Contents
+## What’s Included
 
-- `ANSWERS.md`: written diagnosis and post-mortem for the LLM pipeline failures.
-- `src/rag_pipeline.py`: production-style RAG pipeline for legal PDFs.
-- `data/sample_pdfs/`: uploaded legal PDFs organized in subfolders by document type.
-- `data/rag_eval.json`: manual QA pairs for evaluation against the uploaded corpus.
+- `ANSWERS.md`: written diagnosis, post-mortem, and systems-design answers.
+- `DESIGN.md`: architecture notes for the legal RAG pipeline.
+- `src/rag_pipeline.py`: offline legal-question answering pipeline with citations.
+- `data/sample_pdfs/`: uploaded legal PDFs organized by document type in subfolders.
+- `data/rag_eval.json`: manual QA pairs for evaluating retrieval quality.
 - `src/classifier/`: CPU-friendly ticket classifier and benchmark.
-- `DESIGN.md`: architecture decisions for the RAG system.
+- `tests/`: automated checks for the RAG and classifier flows.
 
 ## Setup
 
 The project is self-contained and uses local libraries only.
 The RAG corpus is sourced from the uploaded PDFs in `data/sample_pdfs/`, and the vector index and classifier artifacts are generated locally during the build/train steps.
 
-### Recommended environment
+Recommended environment:
 
 ```bash
 python3 -m venv .venv
@@ -27,7 +28,7 @@ pip install -r requirements.txt
 
 ## Run
 
-Generate sample PDFs, build the RAG index, and run the evaluation harness:
+Build the RAG index and run the retrieval evaluation:
 
 ```bash
 python -m src.rag_pipeline --build
@@ -42,11 +43,23 @@ python -m src.classifier.evaluate
 python -m src.classifier.latency_test
 ```
 
+Run the full verification suite:
+
+```bash
+pytest -q
+```
+
 Or run the common flow with:
 
 ```bash
 make all
 ```
+
+## Demo Video
+
+Optional walkthrough recording:
+
+- Loom: `https://www.loom.com/share/9e6d6c1269e94ab387b223212254bbd4`
 
 ## Notes
 

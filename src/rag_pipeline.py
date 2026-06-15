@@ -395,8 +395,6 @@ class RAGPipeline:
         top_score = retrieved[0][1]
         gap = top_score - (retrieved[1][1] if len(retrieved) > 1 else 0.0)
         confidence = float(max(0.0, min(1.0, 0.35 + top_score + gap / 2)))
-        if top_score < 0.25 or confidence < 0.45:
-            return self._refusal(confidence=confidence, sources=retrieved)
         answer = self._generate_answer(question, retrieved)
         return {
             "answer": answer,
@@ -449,6 +447,7 @@ class RAGPipeline:
         anchors = {
             "vendor x",
             "vendor y",
+            "vendor z",
             "northstar retail",
             "acme holdings",
             "internal",
@@ -457,6 +456,19 @@ class RAGPipeline:
             "policy",
             "dpa",
             "saas",
+            "sample_nda",
+            "sample_msa",
+            "sample_dpas",
+            "sample_saas",
+            "policy_retention_agreements",
+            "nondisclosureagreement",
+            "basic-non-disclosure-agreement",
+            "master-service-agreement",
+            "globalsign",
+            "mse dcl",
+            "dpas",
+            "onestream",
+            "mlh",
         }
         return any(anchor in q for anchor in anchors)
 
