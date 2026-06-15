@@ -2,7 +2,7 @@
 
 ## Chunking strategy
 
-I use page-aware chunking with sentence-window overlap. Each PDF page is extracted independently, then split into chunks of roughly 180 to 250 words with a 1-sentence overlap.
+I use page-aware chunking with sentence-window overlap. Each PDF page is extracted independently from the uploaded subfolder corpus, then split into chunks of roughly 180 to 250 words with a 1-sentence overlap.
 
 Why this fits legal documents:
 
@@ -41,11 +41,11 @@ Why not Chroma or Pinecone here:
 
 ## Retrieval strategy
 
-I use hybrid retrieval:
+I use hybrid retrieval over the uploaded document set:
 
 - First-pass lexical similarity with TF-IDF.
 - Dense projection into FAISS for ranking.
-- A lightweight re-ranker that boosts chunks containing exact legal cue phrases such as "notice period", "limitation of liability", "termination", or matched monetary amounts.
+- A lightweight second-pass reranker that boosts chunks containing exact legal cue phrases such as "notice period", "limitation of liability", "termination", or matched monetary amounts.
 
 Why:
 
@@ -77,4 +77,3 @@ If the corpus grows to 50,000 documents:
 - Retrieval quality would need better recall. I would use a two-stage system: BM25 + vector retrieval, then a cross-encoder reranker.
 - FAISS index size would grow. I would move to IVF or HNSW indexing, persist the index to disk, and partition by document type or business unit.
 - Evaluation would need to expand. I would maintain a stratified benchmark of legal questions by clause type and measure recall@k plus citation accuracy.
-

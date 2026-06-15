@@ -1,13 +1,17 @@
 [
-  {"question": "What is the notice period in the NDA signed with Vendor X?", "answer": "thirty (30) days", "document": "nda_vendor_x.pdf", "page": 1},
-  {"question": "How long is the NDA term?", "answer": "two years", "document": "nda_vendor_x.pdf", "page": 1},
-  {"question": "Which state governs the NDA?", "answer": "Delaware", "document": "nda_vendor_x.pdf", "page": 1},
-  {"question": "What is the liability cap in the MSA with Vendor Y?", "answer": "INR 1 crore", "document": "msa_vendor_y.pdf", "page": 1},
-  {"question": "What is the uptime commitment in the Vendor Y MSA?", "answer": "99.5 percent", "document": "msa_vendor_y.pdf", "page": 1},
-  {"question": "What cure period applies to material breach termination?", "answer": "fifteen (15) day", "document": "msa_vendor_y.pdf", "page": 1},
-  {"question": "How long are employee records retained?", "answer": "seven years", "document": "policy_retention.pdf", "page": 1},
-  {"question": "How long are finance records retained?", "answer": "eight years", "document": "policy_retention.pdf", "page": 1},
-  {"question": "Who must approve policy exceptions in writing?", "answer": "General Counsel", "document": "policy_retention.pdf", "page": 1},
-  {"question": "Can the NDA be assigned without consent?", "answer": "No", "document": "nda_vendor_x.pdf", "page": 1}
+  {"question": "What is the term of sample_nda/sample_nda.pdf?", "answer": "Five (5) years", "document": "sample_nda/sample_nda.pdf", "page": 3},
+  {"question": "What must be established prior to signing of NDA in sample_nda/sample_nda.pdf?", "answer": "Authority of the Signatory of Receiving Party in NDA shall be established prior to signing", "document": "sample_nda/sample_nda.pdf", "page": 7},
+  {"question": "What do the parties represent and warrant in sample_nda/NondisclosureAgreement.pdf?", "answer": "they have all necessary authority and power to enter into the Agreement", "document": "sample_nda/NondisclosureAgreement.pdf", "page": 6},
+  {"question": "What must the receiving party do with confidential information in Basic-Non-Disclosure-Agreement.pdf?", "answer": "hold and maintain in strictest confidence", "document": "sample_nda/Basic-Non-Disclosure-Agreement.pdf", "page": 1},
+  {"question": "What does the GlobalSign Master Services Agreement govern?", "answer": "your use of the products and services purchased", "document": "sample_msa/GlobalSign_Master_Services_Agreement.pdf", "page": 1},
+  {"question": "What is Annexure-I in Master-Service-Agreement.pdf?", "answer": "the SOW", "document": "sample_msa/Master-Service-Agreement.pdf", "page": 1},
+  {"question": "What project is described in MSA_3c7d18f7-25f8-466b-adf61694603255182_managerprocurement1.pdf?", "answer": "the Project", "document": "sample_msa/MSA_3c7d18f7-25f8-466b-adf61694603255182_managerprocurement1.pdf", "page": 1},
+  {"question": "What is the document name in MSEDCL-Data-Privacy-Retention-Policy-for-MSEDCL-1.pdf?", "answer": "Data Privacy & Retention Policy", "document": "policy_retention_agreements/MSEDCL-Data-Privacy-Retention-Policy-for-MSEDCL-1.pdf", "page": 1},
+  {"question": "What is the legal risk of indefinite retention in Data-Retention-DPDPA-Other.pdf?", "answer": "liability", "document": "policy_retention_agreements/Data-Retention-DPDPA-Other.pdf", "page": 1},
+  {"question": "What does DPAS stand for in DPAS_for_the_Contractor_REV8.pdf?", "answer": "Defense Priorities and Allocations System", "document": "sample_dpas/DPAS_for_the_Contractor_REV8.pdf", "page": 1},
+  {"question": "What does DPAS stand for on the first page of training-2025-dpas.pdf?", "answer": "Defense Priorities and Allocations System", "document": "sample_dpas/training-2025-dpas.pdf", "page": 1},
+  {"question": "Who are the parties in mlh-saas-agreement.pdf?", "answer": "Supplier and Customer", "document": "sample_saas/mlh-saas-agreement.pdf", "page": 1},
+  {"question": "What is the title of the agreement in Onestream-SaaS-Agreement.pdf?", "answer": "SaaS Agreement", "document": "sample_saas/Onestream-SaaS-Agreement.pdf", "page": 1},
+  {"question": "What does the customer agree to in mlh-saas-agreement.pdf?", "answer": "take and pay for the Supplier's service", "document": "sample_saas/mlh-saas-agreement.pdf", "page": 1},
+  {"question": "What is the confidentiality theme in sample_nda/Basic-Non-Disclosure-Agreement.pdf?", "answer": "strictest confidence", "document": "sample_nda/Basic-Non-Disclosure-Agreement.pdf", "page": 1}
 ]
-

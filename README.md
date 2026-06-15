@@ -6,8 +6,8 @@ This repository contains a complete submission for the four required assessment 
 
 - `ANSWERS.md`: written diagnosis and post-mortem for the LLM pipeline failures.
 - `src/rag_pipeline.py`: production-style RAG pipeline for legal PDFs.
-- `data/sample_pdfs/`: three sample contract PDFs generated locally.
-- `data/rag_eval.json`: 10 manual QA pairs for evaluation.
+- `data/sample_pdfs/`: uploaded legal PDFs organized in subfolders by document type.
+- `data/rag_eval.json`: manual QA pairs for evaluation against the uploaded corpus.
 - `src/classifier/`: CPU-friendly ticket classifier and benchmark.
 - `DESIGN.md`: architecture decisions for the RAG system.
 
