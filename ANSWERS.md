@@ -74,7 +74,14 @@ Malicious users can attack a prompt in several distinct ways. One common techniq
 
 I would evaluate summarization quality with a mix of automatic metrics and human review. ROUGE-L is useful for overlap with reference summaries, but it misses factuality and can reward verbatim copying. BERTScore captures semantic similarity better, but it still does not guarantee correctness. For internal reports, factual consistency is critical, so I would add a factuality audit using human raters or an LLM-judge that checks whether each summary claim is supported by the source document. I would build a ground-truth set by sampling reports across departments, lengths, and difficulty levels, then asking trained reviewers to write reference summaries and mark key facts that must appear. To detect regressions, I would keep a locked benchmark set and rerun evaluation whenever the model, prompt, or decoding settings change. I would track metric deltas over time and establish alert thresholds for factuality and coverage. To communicate quality to a non-technical stakeholder, I would report a simple scorecard: how often summaries are factually correct, how often they miss key points, and how much manual review is still needed. The main limitation is that automatic metrics do not fully capture usefulness, so periodic human review remains necessary.
 
+## Section 3: Model choice justification
+
+I chose a CPU-based TF-IDF plus logistic regression classifier because the constraint is under 500ms per ticket on a single CPU server, and the traffic volume is only 2,880 tickets/day. That works out to about 2 tickets per minute on average, so the system needs to be predictable and cheap rather than heavyweight. A local linear model with vectorization is typically far below 500ms per request on this scale, even in small batches, while a remote LLM prompt pipeline would introduce network latency, vendor variability, and per-request cost. The main risk is latency consistency, not raw throughput. A prompt-based LLM could occasionally exceed the SLA because of network or API delays, whereas a local CPU model stays stable. The tradeoff is reduced semantic flexibility, but the five ticket classes are narrow enough that lexical and n-gram features are usually sufficient.
+
+## Section 3: Confusion classes
+
+The main confusion pairs in practice are `billing` versus `other`, and `technical_issue` versus `feature_request`. `billing` and `other` overlap because users often describe account or payment questions in generic support language, while `technical_issue` and `feature_request` overlap when users describe product pain points as requests for improvements or fixes. Additional account context, ticket history, and explicit intent metadata would improve separation.
+
 ## Section 5
 
 Optional screen recording not included.
-
