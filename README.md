@@ -61,7 +61,7 @@ make all
 
 Optional walkthrough recording:
 
-- Loom: [Recording](https://www.loom.com/share/9e6d6c1269e94ab387b223212254bbd4)
+- Loom: [Recording](https://www.loom.com/share/1ff950c6ebdd4983839c4b0b9b786fa3)
 
 ## Notes
 
