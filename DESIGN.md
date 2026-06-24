@@ -1,8 +1,7 @@
-# RAG Design
-
+# Legal-RAG-System
 ## Chunking strategy
 
-I use page-aware chunking with sentence-window overlap. Each PDF page is extracted independently from the uploaded subfolder corpus, then split into chunks of roughly 180 to 250 words with a 1-sentence overlap.
+I use page-aware recursive chunking with overlap. Each PDF page is extracted independently from the uploaded subfolder corpus, then split by paragraph boundaries first, sentence boundaries next, and finally word windows if a span is still too large.
 
 Why this fits legal documents:
 
@@ -14,19 +13,19 @@ I keep chunk metadata for `document`, `page`, and `chunk_id` so the answer can c
 
 ## Embedding model
 
-I use TF-IDF features as the embedding layer, with word and character n-grams.
+I use OpenAI embeddings as the embedding layer, with `text-embedding-3-small` as the default model.
 
 Why:
 
-- The repository must run locally without downloads or API keys.
-- For contract language, lexical overlap is strong for clause lookup questions such as "notice period" or "limitation of liability".
-- Character n-grams improve robustness to formatting differences, numbering, and slight OCR noise.
+- For contract language, semantic similarity is important because user questions are often paraphrased.
+- `text-embedding-3-small` gives a strong retrieval baseline for legal documents while keeping build cost and latency lower.
+- I keep a local TF-IDF fallback for offline failure handling and tests, but it is not the primary retrieval path.
 
-For a larger production corpus, I would replace TF-IDF with a sentence-transformer or domain-tuned embedding model, but that would add external download and inference overhead that is unnecessary for this assessment.
+For a larger production corpus, I would keep the same embedding approach but add batching, caching, and possibly a second-stage reranker for harder legal queries.
 
 ## Vector store choice
 
-I use FAISS with inner-product search over normalized dense vectors produced from a truncated SVD projection of TF-IDF features.
+I use FAISS with inner-product search over normalized dense vectors produced from OpenAI embeddings.
 
 Why FAISS:
 
@@ -43,8 +42,7 @@ Why not Chroma or Pinecone here:
 
 I use hybrid retrieval over the uploaded document set:
 
-- First-pass lexical similarity with TF-IDF.
-- Dense projection into FAISS for ranking.
+- Dense retrieval with FAISS over OpenAI embeddings.
 - A lightweight second-pass reranker that boosts chunks containing exact legal cue phrases such as "notice period", "limitation of liability", "termination", or matched monetary amounts.
 
 Why:

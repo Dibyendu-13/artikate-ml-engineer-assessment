@@ -10,11 +10,13 @@ if str(ROOT) not in sys.path:
 
 
 def _ensure_assets() -> None:
-    from src.rag_pipeline import RAGPipeline
+    from src.rag_pipeline import INDEX_DIR, RAGPipeline, load_env_file
     from src.classifier.train import main as train_classifier
 
-    pipeline = RAGPipeline.build()
-    pipeline.save()
+    load_env_file()
+    if not (INDEX_DIR / "chunks.faiss").exists() or not (INDEX_DIR / "chunks.json").exists():
+        pipeline = RAGPipeline.build()
+        pipeline.save()
     train_classifier()
 
 

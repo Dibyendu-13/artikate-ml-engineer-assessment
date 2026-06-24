@@ -1,4 +1,4 @@
-# Artikate ML Engineer Tasks
+#  ML Engineer Tasks
 
 This repository is a complete submission for the four required assessment sections.
 
@@ -28,25 +28,27 @@ pip install -r requirements.txt
 
 ## Run
 
+Use the project venv explicitly so the commands run in the same environment that has PyMuPDF, OpenAI, and pytest installed.
+
 Build the RAG index and run the retrieval evaluation:
 
 ```bash
-python -m src.rag_pipeline --build
-python -m src.rag_pipeline --eval
+.venv/bin/python -m src.rag_pipeline --build
+.venv/bin/python -m src.rag_pipeline --eval
 ```
 
 Train and evaluate the ticket classifier:
 
 ```bash
-python -m src.classifier.train
-python -m src.classifier.evaluate
-python -m src.classifier.latency_test
+.venv/bin/python -m src.classifier.train
+.venv/bin/python -m src.classifier.evaluate
+.venv/bin/python -m src.classifier.latency_test
 ```
 
 Run the full verification suite:
 
 ```bash
-pytest -q
+.venv/bin/python -m pytest -q
 ```
 
 Or run the common flow with:
@@ -63,7 +65,10 @@ Optional walkthrough recording:
 
 ## Notes
 
-- No API keys are required.
-- The RAG pipeline uses local TF-IDF embeddings plus FAISS over the uploaded legal PDFs and runs fully offline.
+- The RAG pipeline now uses PyMuPDF for PDF extraction and OpenAI embeddings for retrieval.
+- The default embedding model is `text-embedding-3-small`, which I chose as a faster, cheaper starter option while keeping good retrieval quality.
+- Chunking is recursive and structure-aware: it prefers paragraph and sentence boundaries first, then falls back to word windows with overlap. That preserves clause context better than a fixed-length splitter.
+- A small overlap is kept between neighboring chunks so legal exceptions, definitions, and cross-references are less likely to be split apart.
+- No API keys are required for the classifier, but the RAG build step does require `OPENAI_API_KEY`.
 - The classifier uses a CPU-friendly scikit-learn model to satisfy the 500ms constraint.
 - Section 5 is optional and not included.

@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import faiss
 import numpy as np
-from pypdf import PdfReader
-from sklearn.decomposition import TruncatedSVD
+import fitz
+from openai import OpenAI
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -17,6 +19,21 @@ from .utils import DATA_DIR, PDF_DIR
 
 
 INDEX_DIR = DATA_DIR / "index"
+EMBED_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
+ROOT_DIR = Path(__file__).resolve().parents[1]
+
+
+def load_env_file(path: Path = ROOT_DIR / ".env") -> None:
+    if not path.exists():
+        return
+    for raw_line in path.read_text().splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("'").strip('"')
+        os.environ.setdefault(key, value)
 
 
 @dataclass
@@ -29,29 +46,106 @@ class Chunk:
 
 
 def extract_pdf_pages(pdf_path: Path) -> list[tuple[int, str]]:
-    reader = PdfReader(str(pdf_path))
     pages = []
-    for idx, page in enumerate(reader.pages, start=1):
-        pages.append((idx, page.extract_text() or ""))
+    with fitz.open(pdf_path) as doc:
+        for idx, page in enumerate(doc, start=1):
+            pages.append((idx, page.get_text("text") or ""))
     return pages
+
+
+def _split_sentences(text: str) -> list[str]:
+    parts = re.split(r"(?<=[.!?])\s+", text.strip())
+    return [part.strip() for part in parts if part.strip()]
+
+
+def _join_with_overlap(chunks: list[str], overlap_words: int) -> list[str]:
+    if not chunks or overlap_words <= 0:
+        return chunks
+    out: list[str] = []
+    previous_tail: list[str] = []
+    for chunk in chunks:
+        words = chunk.split()
+        if previous_tail:
+            words = previous_tail + words
+        out.append(" ".join(words).strip())
+        previous_tail = chunk.split()[-overlap_words:]
+    return out
+
+
+def _recursive_chunk(text: str, max_words: int, overlap: int) -> list[str]:
+    text = text.strip()
+    if not text:
+        return []
+    words = text.split()
+    if len(words) <= max_words:
+        return [text]
+
+    separators = [
+        "\n\n",
+        "\n",
+        "§",
+        "; ",
+        ": ",
+    ]
+
+    for separator in separators:
+        if separator not in text:
+            continue
+        parts = [part.strip() for part in text.split(separator) if part.strip()]
+        if len(parts) <= 1:
+            continue
+        chunks: list[str] = []
+        current = ""
+        for part in parts:
+            candidate = f"{current}{separator}{part}" if current else part
+            if len(candidate.split()) <= max_words:
+                current = candidate
+            else:
+                if current:
+                    chunks.extend(_recursive_chunk(current, max_words, overlap))
+                current = part
+        if current:
+            chunks.extend(_recursive_chunk(current, max_words, overlap))
+        if chunks:
+            return _join_with_overlap(chunks, overlap)
+
+    sentences = _split_sentences(text)
+    if len(sentences) > 1:
+        chunks = []
+        current: list[str] = []
+        for sentence in sentences:
+            candidate = " ".join(current + [sentence]).strip()
+            if len(candidate.split()) <= max_words:
+                current.append(sentence)
+            else:
+                if current:
+                    chunks.extend(_recursive_chunk(" ".join(current), max_words, overlap))
+                current = [sentence]
+        if current:
+            chunks.extend(_recursive_chunk(" ".join(current), max_words, overlap))
+        if chunks:
+            return _join_with_overlap(chunks, overlap)
+
+    # Final fallback: sliding window over words.
+    chunks = []
+    start = 0
+    while start < len(words):
+        end = min(len(words), start + max_words)
+        chunks.append(" ".join(words[start:end]))
+        if end == len(words):
+            break
+        start = max(end - overlap, start + 1)
+    return chunks
 
 
 def chunk_text(text: str, words_per_chunk: int = 140, overlap: int = 25) -> list[str]:
     paragraphs = [p.strip() for p in text.split("\n") if p.strip()]
     if not paragraphs:
         return []
-    words = " ".join(paragraphs).split()
-    if len(words) <= words_per_chunk:
-        return [" ".join(paragraphs)]
     chunks: list[str] = []
-    start = 0
-    while start < len(words):
-        end = min(len(words), start + words_per_chunk)
-        chunks.append(" ".join(words[start:end]))
-        if end == len(words):
-            break
-        start = max(end - overlap, start + 1)
-    return chunks
+    for paragraph in paragraphs:
+        chunks.extend(_recursive_chunk(paragraph, words_per_chunk, overlap))
+    return [chunk for chunk in chunks if chunk.strip()]
 
 
 def infer_section(text: str) -> str:
@@ -101,22 +195,32 @@ def normalize_rows(x: np.ndarray) -> np.ndarray:
     return x / norms
 
 
+def _chunked(items: list[str], batch_size: int) -> list[list[str]]:
+    return [items[i : i + batch_size] for i in range(0, len(items), batch_size)]
+
+
+def embed_texts(client: OpenAI, texts: list[str], batch_size: int = 64) -> np.ndarray:
+    vectors: list[list[float]] = []
+    for batch in _chunked(texts, batch_size):
+        resp = client.embeddings.create(model=EMBED_MODEL, input=batch)
+        vectors.extend([item.embedding for item in resp.data])
+    return np.asarray(vectors, dtype="float32")
+
+
 class RAGPipeline:
     def __init__(
         self,
         corpus: list[Chunk],
-        word_vectorizer: TfidfVectorizer,
-        svd: TruncatedSVD,
         index: faiss.IndexFlatIP,
-        char_vectorizer: TfidfVectorizer,
+        embeddings: np.ndarray,
+        client: OpenAI,
     ):
         self.corpus = corpus
-        self.vectorizer = word_vectorizer
-        self.svd = svd
         self.index = index
-        self.matrix = self.vectorizer.transform([c.chunk for c in corpus])
-        self.char_vectorizer = char_vectorizer
-        self.char_matrix = self.char_vectorizer.transform([c.chunk for c in corpus])
+        self.embeddings = embeddings
+        self.client = client
+        self.fallback_vectorizer = TfidfVectorizer(ngram_range=(1, 2), min_df=1)
+        self.fallback_matrix = self.fallback_vectorizer.fit_transform([c.chunk for c in corpus])
         self.section_titles = {
             "termination": {"termination", "notice period", "cure period"},
             "liability": {"liability", "cap", "indemnity"},
@@ -145,50 +249,60 @@ class RAGPipeline:
     @classmethod
     def build(cls) -> "RAGPipeline":
         corpus = build_corpus()
-        word_vectorizer = TfidfVectorizer(ngram_range=(1, 2), analyzer="word", min_df=1, max_features=7000)
-        tfidf = word_vectorizer.fit_transform([c.chunk for c in corpus])
-        char_vectorizer = TfidfVectorizer(ngram_range=(3, 5), analyzer="char_wb", min_df=1, max_features=7000)
-        char_vectorizer.fit([c.chunk for c in corpus])
-        n_components = max(2, min(64, tfidf.shape[1] - 1))
-        svd = TruncatedSVD(n_components=n_components, random_state=42)
-        dense = svd.fit_transform(tfidf)
-        dense = normalize_rows(dense.astype("float32"))
-        index = faiss.IndexFlatIP(dense.shape[1])
-        index.add(dense)
+        client = OpenAI()
+        embeddings = embed_texts(client, [c.chunk for c in corpus])
+        embeddings = normalize_rows(embeddings)
+        index = faiss.IndexFlatIP(embeddings.shape[1])
+        index.add(embeddings)
         INDEX_DIR.mkdir(parents=True, exist_ok=True)
-        return cls(corpus, word_vectorizer, svd, index, char_vectorizer)
+        return cls(corpus, index, embeddings, client)
 
-    def _encode(self, text: str) -> np.ndarray:
-        tfidf = self.vectorizer.transform([text])
-        dense = self.svd.transform(tfidf)
-        dense = normalize_rows(dense.astype("float32"))
-        return dense
+    def _encode(self, text: str) -> np.ndarray | None:
+        try:
+            dense = embed_texts(self.client, [text])
+            return normalize_rows(dense)
+        except Exception:
+            return None
 
     def retrieve(self, question: str, top_k: int = 3) -> list[tuple[Chunk, float]]:
         q = self._encode(question)
-        dense_scores, ids = self.index.search(q, top_k * 20)
-        sparse_scores = cosine_similarity(self.vectorizer.transform([question]), self.matrix)[0]
-        char_scores = cosine_similarity(self.char_vectorizer.transform([question]), self.char_matrix)[0]
         question_doc = self._route_document(question)
         pairs = []
-        for idx, dense_score in zip(ids[0], dense_scores[0]):
-            if idx < 0:
-                continue
-            chunk = self.corpus[idx]
-            if question_doc != "general" and question_doc not in chunk.document.lower():
-                continue
-            sparse_score = float(sparse_scores[idx])
-            char_score = float(char_scores[idx])
-            boosted = 0.34 * float(dense_score) + 0.22 * sparse_score + 0.18 * char_score
-            boosted += 0.18 * self._keyword_boost(question, chunk.chunk)
-            boosted += 0.10 * self._document_boost(question_doc, chunk)
-            boosted += 0.08 * self._section_boost(self._route_question(question), chunk)
-            boosted += 0.12 * self._term_coverage_boost(self._important_terms(question), chunk.chunk)
-            boosted += self._page_boost(chunk)
-            boosted = self._rerank_candidate(question, chunk, boosted)
-            boosted += self._doc_title_boost(question, chunk)
-            boosted += self._filename_hint_boost(question, chunk)
-            pairs.append((chunk, boosted))
+        if q is None:
+            scores = cosine_similarity(self.fallback_vectorizer.transform([question]), self.fallback_matrix)[0]
+            candidate_ids = np.argsort(scores)[::-1][: top_k * 20]
+            for idx in candidate_ids:
+                chunk = self.corpus[int(idx)]
+                if question_doc != "general" and question_doc not in chunk.document.lower():
+                    continue
+                boosted = float(scores[idx])
+                boosted += 0.18 * self._keyword_boost(question, chunk.chunk)
+                boosted += 0.10 * self._document_boost(question_doc, chunk)
+                boosted += 0.08 * self._section_boost(self._route_question(question), chunk)
+                boosted += 0.12 * self._term_coverage_boost(self._important_terms(question), chunk.chunk)
+                boosted += self._page_boost(chunk)
+                boosted = self._rerank_candidate(question, chunk, boosted)
+                boosted += self._doc_title_boost(question, chunk)
+                boosted += self._filename_hint_boost(question, chunk)
+                pairs.append((chunk, boosted))
+        else:
+            dense_scores, ids = self.index.search(q, top_k * 20)
+            for idx, dense_score in zip(ids[0], dense_scores[0]):
+                if idx < 0:
+                    continue
+                chunk = self.corpus[idx]
+                if question_doc != "general" and question_doc not in chunk.document.lower():
+                    continue
+                boosted = 0.54 * float(dense_score)
+                boosted += 0.18 * self._keyword_boost(question, chunk.chunk)
+                boosted += 0.10 * self._document_boost(question_doc, chunk)
+                boosted += 0.08 * self._section_boost(self._route_question(question), chunk)
+                boosted += 0.12 * self._term_coverage_boost(self._important_terms(question), chunk.chunk)
+                boosted += self._page_boost(chunk)
+                boosted = self._rerank_candidate(question, chunk, boosted)
+                boosted += self._doc_title_boost(question, chunk)
+                boosted += self._filename_hint_boost(question, chunk)
+                pairs.append((chunk, boosted))
         pairs.sort(key=lambda x: x[1], reverse=True)
         return pairs[:top_k]
 
@@ -486,18 +600,22 @@ class RAGPipeline:
         INDEX_DIR.mkdir(parents=True, exist_ok=True)
         faiss.write_index(self.index, str(INDEX_DIR / "chunks.faiss"))
         (INDEX_DIR / "chunks.json").write_text(json.dumps([c.__dict__ for c in self.corpus], indent=2))
-        import joblib
-
-        joblib.dump({"vectorizer": self.vectorizer, "char_vectorizer": self.char_vectorizer, "svd": self.svd}, INDEX_DIR / "artifacts.joblib")
+        np.save(INDEX_DIR / "embeddings.npy", self.embeddings)
+        (INDEX_DIR / "embedding_model.txt").write_text(EMBED_MODEL)
 
     @classmethod
     def load(cls) -> "RAGPipeline":
-        import joblib
-
         corpus = [Chunk(**x) for x in json.loads((INDEX_DIR / "chunks.json").read_text())]
-        art = joblib.load(INDEX_DIR / "artifacts.joblib")
         index = faiss.read_index(str(INDEX_DIR / "chunks.faiss"))
-        return cls(corpus, art["vectorizer"], art["svd"], index, art["char_vectorizer"])
+        embeddings_path = INDEX_DIR / "embeddings.npy"
+        if not embeddings_path.exists():
+            raise RuntimeError(
+                "Missing embeddings.npy in data/index. Rebuild the index with "
+                "`python -m src.rag_pipeline --build` after setting OPENAI_API_KEY."
+            )
+        embeddings = np.load(embeddings_path)
+        client = OpenAI()
+        return cls(corpus, index, embeddings, client)
 
 
 def evaluate(pipeline: RAGPipeline) -> None:
@@ -511,6 +629,7 @@ def evaluate(pipeline: RAGPipeline) -> None:
 
 
 def main() -> None:
+    load_env_file()
     parser = argparse.ArgumentParser()
     parser.add_argument("--build", action="store_true")
     parser.add_argument("--eval", action="store_true")

@@ -7,22 +7,22 @@ setup:
 	. .venv/bin/activate && pip install -U pip && pip install -r requirements.txt
 
 build-rag:
-	python -m src.rag_pipeline --build
+	.venv/bin/python -m src.rag_pipeline --build
 
 eval-rag:
-	python -m src.rag_pipeline --eval
+	.venv/bin/python -m src.rag_pipeline --eval
 
 train-classifier:
-	python -m src.classifier.train
+	.venv/bin/python -m src.classifier.train
 
 eval-classifier:
-	python -m src.classifier.evaluate
+	.venv/bin/python -m src.classifier.evaluate
 
 latency:
-	python -m src.classifier.latency_test
+	.venv/bin/python -m src.classifier.latency_test
 
 test:
-	pytest -q
+	.venv/bin/python -m pytest -q
 
 clean:
 	find . -name '__pycache__' -type d -prune -exec rm -rf {} +
